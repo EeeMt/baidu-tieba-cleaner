@@ -1,18 +1,12 @@
 package me.ihxq.projects.baidutiebacleaner.config;
 
 import lombok.Data;
-import lombok.Getter;
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static org.openqa.selenium.support.ui.ExpectedConditions.*;
 
 /**
  * @author xq.h
@@ -46,19 +40,4 @@ public class RunProperty {
         this.invalidContentPageTitlePattern = Pattern.compile(invalidPageTitleRegex);
     }
 
-    private Selectors selectors = new Selectors();
-
-    @Data
-    @Getter
-    @SuppressWarnings("SpellCheckingInspection")
-    public static class Selectors {
-        private ExpectedCondition<WebElement> usernameInHeader = presenceOfElementLocated(By.cssSelector(".u_menu_username > a"));
-        private ExpectedCondition<WebElement> myPublishes = presenceOfNestedElementLocatedBy(By.cssSelector(".ihome_nav_wrap"), By.linkText("帖子"));
-        private ExpectedCondition<WebElement> myPosts = presenceOfNestedElementLocatedBy(By.cssSelector(".sub_nav"), By.linkText("我的帖子"));
-        private ExpectedCondition<WebElement> myReplies = presenceOfNestedElementLocatedBy(By.cssSelector(".sub_nav"), By.linkText("我回复的"));
-        private ExpectedCondition<List<WebElement>> postThreads = presenceOfAllElementsLocatedBy(By.cssSelector(".thread_title"));
-        private By postDelLink = By.cssSelector(".p_post_del");
-        private By replyDelLink = By.cssSelector(".j_lzl_del");
-        private By dialogConfirmBtn = By.cssSelector(".dialogJbtn:nth-child(1)");
-    }
 }

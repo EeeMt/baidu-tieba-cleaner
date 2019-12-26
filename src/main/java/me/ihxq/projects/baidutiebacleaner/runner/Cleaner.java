@@ -3,7 +3,7 @@ package me.ihxq.projects.baidutiebacleaner.runner;
 import com.google.common.io.Files;
 import me.ihxq.projects.baidutiebacleaner.config.AuthCookies;
 import me.ihxq.projects.baidutiebacleaner.config.RunProperty;
-import me.ihxq.projects.baidutiebacleaner.config.RunProperty.Selectors;
+import me.ihxq.projects.baidutiebacleaner.config.SelectorConfig;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -31,16 +31,15 @@ public class Cleaner {
 
     private final RunProperty runProperty;
     private final AuthCookies authCookies;
-    private final WebDriver driver;
+    private final ChromeDriver driver;
     private final WebDriverWait wait;
-    private final Selectors selectors;
+    private final SelectorConfig selectors;
 
 
-    public Cleaner(RunProperty runProperty, AuthCookies authCookies) {
+    public Cleaner(RunProperty runProperty, AuthCookies authCookies, SelectorConfig selectors) {
         this.runProperty = runProperty;
         this.authCookies = authCookies;
-
-        selectors = runProperty.getSelectors();
+        this.selectors = selectors;
 
         System.setProperty("webdriver.chrome.driver", runProperty.getChromeDriverPath());
         driver = new ChromeDriver(new ChromeOptions().addArguments(runProperty.getChromeOptions()));
@@ -89,21 +88,22 @@ public class Cleaner {
             waitForElement(selectors.getUsernameInHeader()).click();
 
             addAuthCookiesAndRefresh(driver);
-            waitForElement(selectors.getMyPublishes()).click();
+            waitForElement(selectors.getMyPublish()).click();
 
             closeCurrentAndSwitchToNextTab(driver);
 
-            List<WebElement> themes = waitForElements(selectors.getEntrancesInPostList());
+            List<WebElement> themes = waitForElements(selectors.getPosts());
 
-            themes.stream()
-                    //.skip(3)
-                    .forEach(this::execDelete);
+            //themes.stream()
+            //        //.skip(3)
+            //        .forEach(this::execDelete);
 
-            waitForElement(selectors.getMyReplyPage()).click();
+            waitForElement(selectors.getMyReply()).click();
 
-            List<WebElement> replies = waitForElements(selectors.getMyReplies());
+            List<WebElement> replies = waitForElements(selectors.getReplies());
             replies.stream()
                     .forEach(this::execDeleteReply);
+            System.out.println("done");
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -126,10 +126,11 @@ public class Cleaner {
         }
         try {
             switchToNextTab(driver);
-            scrollDown();
             if (isValidPage()) {
-                waitForElement(selectors.getDelLinkInPost()).click();
-                waitForElement(selectors.getConfirmDelBtnInPost()).click();
+                WebElement webElement = waitForElement(selectors.getReplyDelLink());
+                driver.executeScript("$('.lzl_jb').css('display','inline')");
+                webElement.click();
+                waitForElement(selectors.getDialogConfirmBtn()).click();
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -147,8 +148,8 @@ public class Cleaner {
             //new Actions(driver).sendKeys(Keys.PAGE_DOWN).perform();
             //new Actions(driver).sendKeys(Keys.UP).perform();
             if (isValidPage()) {
-                waitForElement(selectors.getDelLinkInPost()).click();
-                waitForElement(selectors.getConfirmDelBtnInPost()).click();
+                waitForElement(selectors.getPostDelLink()).click();
+                waitForElement(selectors.getDialogConfirmBtn()).click();
             }
         } catch (Exception e) {
             e.printStackTrace();
