@@ -16,20 +16,25 @@ import java.util.stream.Stream;
 @ConfigurationProperties(prefix = "run")
 public class RunProperty {
     @SuppressWarnings("SpellCheckingInspection")
-    private String chromeDriverPath = "/Users/xiquan/chromedriver";
+    private String chromeDriverPath = "classpath:/driver/chromedriver";
 
     @SuppressWarnings("SpellCheckingInspection")
-    private String bdussCookie = "VFKSTF4UXp4cldPVDRCSWZ3d1M1ZGQzOGkycjh2dzc2MnhraVNkU0Npa0dwU1JlRVFBQUFBJCQAAAAAAAAAAAEAAADIEisptuy27LbswvPRvwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYY~V0GGP1dQ";
+    private String bdussCookie;
 
     @SuppressWarnings("SpellCheckingInspection")
-    private String sToken = "9763d25be85c588cded87d21200ada29534ce398e7585419d09b9982ff9468df";
+    private String sToken ;
 
     private List<String> chromeOptions = Stream.of(
             "--window-size=1920,1080",
-            //"--headless",
+            "--headless",
             "--blink-settings=imagesEnabled=false",
             "--disable-gpu"
     ).collect(Collectors.toList());
+
+    private boolean processDeleteMyPosts = false;
+    private boolean processDeleteMyReplies = false;
+    private boolean processDeleteSearchResults = true;
+
 
     private long timeOutInSeconds = 5;
     private long lookupTimeOutInSeconds = 1;

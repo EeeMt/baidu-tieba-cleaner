@@ -1,6 +1,7 @@
 package me.ihxq.projects.baidutiebacleaner.runner;
 
 import com.google.common.io.Files;
+import lombok.extern.slf4j.Slf4j;
 import me.ihxq.projects.baidutiebacleaner.config.AuthCookies;
 import me.ihxq.projects.baidutiebacleaner.config.RunProperty;
 import me.ihxq.projects.baidutiebacleaner.config.SelectorConfig;
@@ -15,9 +16,13 @@ import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.List;
+import java.util.Objects;
 
-import static me.ihxq.projects.baidutiebacleaner.utils.TabSwitcher.*;
+import static me.ihxq.projects.baidutiebacleaner.utils.TabSwitcher.closeCurrentAndSwitchToPreviousTab;
+import static me.ihxq.projects.baidutiebacleaner.utils.TabSwitcher.switchToNextTab;
 import static org.openqa.selenium.support.ui.ExpectedConditions.presenceOfAllElementsLocatedBy;
 import static org.openqa.selenium.support.ui.ExpectedConditions.presenceOfElementLocated;
 
@@ -27,6 +32,7 @@ import static org.openqa.selenium.support.ui.ExpectedConditions.presenceOfElemen
  **/
 @SuppressWarnings("UnstableApiUsage")
 @Component
+@Slf4j
 public class Cleaner {
 
     private final RunProperty runProperty;
@@ -41,7 +47,8 @@ public class Cleaner {
         this.authCookies = authCookies;
         this.selectors = selectors;
 
-        System.setProperty("webdriver.chrome.driver", runProperty.getChromeDriverPath());
+        String chromeDriverPath = Objects.requireNonNull(Cleaner.class.getClassLoader().getResource("driver/chromedriver")).getPath();
+        System.setProperty("webdriver.chrome.driver", chromeDriverPath);
         driver = new ChromeDriver(new ChromeOptions().addArguments(runProperty.getChromeOptions()));
         wait = new WebDriverWait(driver, runProperty.getTimeOutInSeconds());
     }
@@ -78,37 +85,103 @@ public class Cleaner {
         //((JavascriptExecutor) driver).executeScript("window.scrollBy(0, window.innerHeight*0.8)");
     }
 
+    private void getAndLogin(String url) {
+        driver.get(url);
+        addAuthCookies(driver);
+        driver.get(url);
+    }
+
+
     @EventListener(ApplicationReadyEvent.class)
     public void run() throws InterruptedException {
         try {
-            driver.get("https://tieba.baidu.com/");
+            getAndLogin("http://tieba.baidu.com/i/i/my_tie");
 
-            //addCookies(driver);
-            addAuthCookiesAndRefresh(driver);
-            waitForElement(selectors.getUsernameInHeader()).click();
+            String username = waitForElement(selectors.getUsernameInHeader()).getText();
 
-            addAuthCookiesAndRefresh(driver);
-            waitForElement(selectors.getMyPublish()).click();
+            if (runProperty.isProcessDeleteMyPosts()) {
+                log.info("process MyPosts");
+                this.processPosts();
+            }
+            if (runProperty.isProcessDeleteMyReplies()) {
+                log.info("process MyReplies");
+                this.processReplies();
+            }
+            if (runProperty.isProcessDeleteSearchResults()) {
+                log.info("process SearchResults");
+                this.processSearchResults(username);
+            }
 
-            closeCurrentAndSwitchToNextTab(driver);
-
-            List<WebElement> themes = waitForElements(selectors.getPosts());
-
-            //themes.stream()
-            //        //.skip(3)
-            //        .forEach(this::execDelete);
-
-            waitForElement(selectors.getMyReply()).click();
-
-            List<WebElement> replies = waitForElements(selectors.getReplies());
-            replies.stream()
-                    .forEach(this::execDeleteReply);
             System.out.println("done");
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
             driver.quit();
         }
+    }
+
+    private void processPosts() {
+        List<WebElement> themes = waitForElements(selectors.getPosts());
+
+        themes.forEach(this::execDelete);
+    }
+
+    private void processReplies() {
+        waitForElement(selectors.getMyReply()).click();
+
+        List<WebElement> replies = waitForElements(selectors.getReplies());
+        replies.forEach(this::execDeleteReply);
+    }
+
+    private String genSearchResultPageLink(String encodedUsername, int pageNum) {
+        //return "http://tieba.baidu.com/f/search/res?ie=utf-8&qw=" + encodedUsername + "&pn=" + pageNum;
+        return "http://tieba.baidu.com/f/search/ures?ie=utf-8&kw=&qw=&rn=10&sm=1&un=" + encodedUsername;
+
+    }
+
+    private void processSearchResults(String username) {
+        try {
+            String encodedUsername = URLEncoder.encode(username, "utf-8");
+            String url = "http://tieba.baidu.com/f/search/ures?ie=utf-8&kw=&qw=&rn=10&sm=1&un=" + encodedUsername;
+            driver.get(url);
+
+            do {
+                this.pagingProcessSearchResults();
+            } while (nextPage());
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private boolean nextPage() {
+        try {
+            waitForElement(selectors.getNextSearchPage()).click();
+            log.info("next page");
+        } catch (Exception e) {
+            log.info("no next page button found, may be it's the end");
+            return false;
+        }
+        return true;
+    }
+
+    private void pagingProcessSearchResults() {
+        List<WebElement> results = null;
+        try {
+            results = waitForElements(selectors.getSearchResults());
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.info("no thread found, may be there's no thread on the page");
+        }
+        if (results != null) {
+            results.forEach(this::execDeleteReply);
+        }
+        try {
+            waitForElement(selectors.getNextSearchPage()).click();
+        } catch (Exception e) {
+            log.info("no next page button found, may be it's the end");
+            throw e;
+        }
+
     }
 
     private boolean isValidPage() {
@@ -118,10 +191,11 @@ public class Cleaner {
     }
 
     private void execDeleteReply(WebElement element) {
+        log.info("processing: {}", element.getText());
         try {
             element.click();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("can not click the link");
             return;
         }
         try {
@@ -129,18 +203,30 @@ public class Cleaner {
             if (isValidPage()) {
                 WebElement webElement = waitForElement(selectors.getReplyDelLink());
                 driver.executeScript("$('.lzl_jb').css('display','inline')");
-                webElement.click();
-                waitForElement(selectors.getDialogConfirmBtn()).click();
+                if (webElement.getText().equals("删除")) {
+                    webElement.click();
+                    waitForElement(selectors.getDialogConfirmBtn()).click();
+                    log.info("success");
+                }
             }
+
+        } catch (TimeoutException e) {
+            log.error("delete failed for founding no deletion link");
         } catch (Exception e) {
-            e.printStackTrace();
+            //e.printStackTrace();
+            log.error("delete failed for unknown reason");
         } finally {
-            closeCurrentAndSwitchToPreviousTab(driver);
+            try {
+                closeCurrentAndSwitchToPreviousTab(driver);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
 
     private void execDelete(WebElement element) {
+        log.info("processing: {}", element.getText());
         try {
             element.click();
             switchToNextTab(driver);

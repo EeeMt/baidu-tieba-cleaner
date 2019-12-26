@@ -23,7 +23,9 @@ public class SelectorConfig {
     private ExpectedCondition<WebElement> myReply = presenceOfNestedElementLocatedBy(By.cssSelector(".sub_nav"), By.linkText("我回复的"));
     private ExpectedCondition<List<WebElement>> posts = presenceOfAllElementsLocatedBy(By.cssSelector(".thread_title"));
     private ExpectedCondition<List<WebElement>> replies = presenceOfAllElementsLocatedBy(By.cssSelector(".b_reply_txt > .b_reply"));
+    private ExpectedCondition<List<WebElement>> searchResults = presenceOfAllElementsLocatedBy(By.cssSelector(".s_post > .p_title > a"));
+    private ExpectedCondition<WebElement> nextSearchPage = presenceOfElementLocated(By.cssSelector(".next"));
     private ExpectedCondition<WebElement> postDelLink = presenceOfElementLocated(By.cssSelector(".p_post_del"));
-    private ExpectedCondition<WebElement> replyDelLink = presenceOfElementLocated(By.cssSelector(".j_jb_ele > a, .lzl_jb > a.lzl_jb_in, .j_lzl_del"));
+    private ExpectedCondition<WebElement> replyDelLink = presenceOfElementLocated(By.cssSelector("a.p_post_del_my, .lzl_jb > a.lzl_jb_in, .j_lzl_del"));
     private ExpectedCondition<WebElement> dialogConfirmBtn = presenceOfElementLocated(By.cssSelector(".dialogJbtn:nth-child(1)"));
 }
