@@ -22,13 +22,14 @@ public class RunProperty {
     private String bdussCookie;
 
     @SuppressWarnings("SpellCheckingInspection")
-    private String sToken ;
+    private String sToken;
 
     private List<String> chromeOptions = Stream.of(
             "--window-size=1920,1080",
-            "--headless",
-            "--blink-settings=imagesEnabled=false",
-            "--disable-gpu"
+            //"--blink-settings=imagesEnabled=false",
+            "--disable-gpu",
+            //"--headless",
+            "--no"
     ).collect(Collectors.toList());
 
     private boolean processDeleteMyPosts = false;

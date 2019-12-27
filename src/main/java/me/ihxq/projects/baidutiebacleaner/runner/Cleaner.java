@@ -7,7 +7,9 @@ import me.ihxq.projects.baidutiebacleaner.config.RunProperty;
 import me.ihxq.projects.baidutiebacleaner.config.SelectorConfig;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeDriverService;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -20,11 +22,11 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static me.ihxq.projects.baidutiebacleaner.utils.TabSwitcher.closeCurrentAndSwitchToPreviousTab;
 import static me.ihxq.projects.baidutiebacleaner.utils.TabSwitcher.switchToNextTab;
-import static org.openqa.selenium.support.ui.ExpectedConditions.presenceOfAllElementsLocatedBy;
-import static org.openqa.selenium.support.ui.ExpectedConditions.presenceOfElementLocated;
+import static org.openqa.selenium.support.ui.ExpectedConditions.*;
 
 /**
  * @author xq.h
@@ -49,7 +51,11 @@ public class Cleaner {
 
         String chromeDriverPath = Objects.requireNonNull(Cleaner.class.getClassLoader().getResource("driver/chromedriver")).getPath();
         System.setProperty("webdriver.chrome.driver", chromeDriverPath);
-        driver = new ChromeDriver(new ChromeOptions().addArguments(runProperty.getChromeOptions()));
+        ChromeOptions options = new ChromeOptions().addArguments(runProperty.getChromeOptions());
+        ChromeDriverService chromeDriverService = new ChromeDriverService.Builder()
+                .withSilent(true)
+                .build();
+        driver = new ChromeDriver(chromeDriverService, options);
         wait = new WebDriverWait(driver, runProperty.getTimeOutInSeconds());
     }
 
@@ -201,19 +207,29 @@ public class Cleaner {
         try {
             switchToNextTab(driver);
             if (isValidPage()) {
-                WebElement webElement = waitForElement(selectors.getReplyDelLink());
-                driver.executeScript("$('.lzl_jb').css('display','inline')");
-                if (webElement.getText().equals("删除")) {
-                    webElement.click();
-                    waitForElement(selectors.getDialogConfirmBtn()).click();
-                    log.info("success");
+                if (tryDelete()) {
+                    return;
                 }
+                if (tryDelete()) {
+                    return;
+                }
+                WebElement moreLink = waitForElement(selectors.getMoreLink());
+                new Actions(driver).moveToElement(moreLink).perform();
+                this.scrollIntoView(moreLink);
+                moreLink.click();
+                if (tryDelete()) {
+                    return;
+                }
+                System.out.println();
+
+            } else {
+                log.info("delete skip for page invalid: {}", driver.getTitle());
             }
 
         } catch (TimeoutException e) {
             log.error("delete failed for founding no deletion link");
         } catch (Exception e) {
-            //e.printStackTrace();
+            e.printStackTrace();
             log.error("delete failed for unknown reason");
         } finally {
             try {
@@ -221,6 +237,60 @@ public class Cleaner {
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private void pageDown() {
+        new Actions(driver).sendKeys(Keys.PAGE_DOWN).build().perform();
+    }
+
+    private void scrollIntoView(WebElement element) {
+        String scrollElementIntoMiddle = "var viewPortHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);"
+                + "var elementTop = arguments[0].getBoundingClientRect().top;"
+                + "window.scrollBy(0, elementTop-(viewPortHeight/2));";
+
+        driver.executeScript(scrollElementIntoMiddle, element);
+        //driver.executeScript("arguments[0].scrollIntoView(true);", element);
+    }
+
+    private boolean tryDelete() throws InterruptedException {
+        try {
+            List<WebElement> webElements = null;
+            try {
+                webElements = waitForElements(selectors.getReplyDelLink());
+            } catch (Exception e) {
+                pageDown();
+                webElements = waitForElements(selectors.getReplyDelLink());
+            }
+            driver.executeScript("$('.lzl_jb').css('display','inline')");
+            webElements = webElements.stream()
+                    .filter(v -> v.getText().equals("删除"))
+                    .collect(Collectors.toList());
+            if (webElements.isEmpty()) {
+                return false;
+            }
+            for (WebElement webElement : webElements) {
+                this.scrollIntoView(webElement);
+                wait.until(refreshed(elementToBeClickable(webElement)));
+                webElement.click();
+                waitForElement(selectors.getDialogConfirmBtn()).click();
+                Thread.sleep(500);
+                try {
+                    String message = driver.findElement(By.cssSelector(".dialogJbody > .d_messager_txt")).getText();
+                    log.warn("message: {}", message);
+                    waitForElement(selectors.getDialogErrorConfirm()).click();
+                } catch (NoSuchElementException e) {
+                    log.info("success");
+                    continue;
+                }
+
+            }
+            return true;
+        } catch (TimeoutException ignore) {
+            //e.printStackTrace();
+            return false;
+        } catch (InterruptedException e) {
+            throw e;
         }
     }
 

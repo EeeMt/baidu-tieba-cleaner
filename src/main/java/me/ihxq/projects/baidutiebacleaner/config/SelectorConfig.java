@@ -26,6 +26,9 @@ public class SelectorConfig {
     private ExpectedCondition<List<WebElement>> searchResults = presenceOfAllElementsLocatedBy(By.cssSelector(".s_post > .p_title > a"));
     private ExpectedCondition<WebElement> nextSearchPage = presenceOfElementLocated(By.cssSelector(".next"));
     private ExpectedCondition<WebElement> postDelLink = presenceOfElementLocated(By.cssSelector(".p_post_del"));
-    private ExpectedCondition<WebElement> replyDelLink = presenceOfElementLocated(By.cssSelector("a.p_post_del_my, .lzl_jb > a.lzl_jb_in, .j_lzl_del"));
+    private ExpectedCondition<WebElement> moreLink = presenceOfElementLocated(By.cssSelector(".lzl_more > a"));
+    private ExpectedCondition<List<WebElement>> replyDelLink = presenceOfAllElementsLocatedBy(By.cssSelector("a.p_post_del, a.p_post_del_my, .lzl_jb > a.lzl_jb_in, .j_lzl_del, .lzl_delate_in"));
     private ExpectedCondition<WebElement> dialogConfirmBtn = presenceOfElementLocated(By.cssSelector(".dialogJbtn:nth-child(1)"));
+    private ExpectedCondition<WebElement> dialogErrorMessage = presenceOfElementLocated(By.cssSelector(".d_messager_txt"));
+    private ExpectedCondition<WebElement> dialogErrorConfirm = presenceOfElementLocated(By.cssSelector(".j_messager_ok"));
 }
