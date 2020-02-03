@@ -8,7 +8,7 @@ import java.util.LinkedList;
  * @author xq.h
  * 2019/12/21 17:22
  **/
-public class TabSwitcher {
+public class TabSwitchUtil {
     private static final LinkedList<String> tabCache = new LinkedList<>();
 
     private static void loadIntoTabCache(WebDriver driver) {

@@ -3,7 +3,7 @@ package me.ihxq.projects.baidutiebacleaner.runner;
 import com.google.common.io.Files;
 import lombok.extern.slf4j.Slf4j;
 import me.ihxq.projects.baidutiebacleaner.config.AuthCookies;
-import me.ihxq.projects.baidutiebacleaner.config.RunProperty;
+import me.ihxq.projects.baidutiebacleaner.config.RunConfig;
 import me.ihxq.projects.baidutiebacleaner.config.SelectorConfig;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static me.ihxq.projects.baidutiebacleaner.utils.TabSwitcher.closeCurrentAndSwitchToPreviousTab;
-import static me.ihxq.projects.baidutiebacleaner.utils.TabSwitcher.switchToNextTab;
+import static me.ihxq.projects.baidutiebacleaner.utils.TabSwitchUtil.closeCurrentAndSwitchToPreviousTab;
+import static me.ihxq.projects.baidutiebacleaner.utils.TabSwitchUtil.switchToNextTab;
 import static org.openqa.selenium.support.ui.ExpectedConditions.*;
 
 /**
@@ -37,26 +37,25 @@ import static org.openqa.selenium.support.ui.ExpectedConditions.*;
 @Slf4j
 public class Cleaner {
 
-    private final RunProperty runProperty;
+    private final RunConfig runConfig;
     private final AuthCookies authCookies;
     private final ChromeDriver driver;
     private final WebDriverWait wait;
     private final SelectorConfig selectors;
 
-
-    public Cleaner(RunProperty runProperty, AuthCookies authCookies, SelectorConfig selectors) {
-        this.runProperty = runProperty;
+    public Cleaner(RunConfig runConfig, AuthCookies authCookies, SelectorConfig selectors) {
+        this.runConfig = runConfig;
         this.authCookies = authCookies;
         this.selectors = selectors;
 
         String chromeDriverPath = Objects.requireNonNull(Cleaner.class.getClassLoader().getResource("driver/chromedriver")).getPath();
         System.setProperty("webdriver.chrome.driver", chromeDriverPath);
-        ChromeOptions options = new ChromeOptions().addArguments(runProperty.getChromeOptions());
+        ChromeOptions options = new ChromeOptions().addArguments(runConfig.getChromeOptions());
         ChromeDriverService chromeDriverService = new ChromeDriverService.Builder()
                 .withSilent(true)
                 .build();
         driver = new ChromeDriver(chromeDriverService, options);
-        wait = new WebDriverWait(driver, runProperty.getTimeOutInSeconds());
+        wait = new WebDriverWait(driver, 4);
     }
 
     private void addAuthCookiesAndRefresh(WebDriver driver) {
@@ -105,15 +104,15 @@ public class Cleaner {
 
             String username = waitForElement(selectors.getUsernameInHeader()).getText();
 
-            if (runProperty.isProcessDeleteMyPosts()) {
+            if (runConfig.isProcessMyPosts()) {
                 log.info("process MyPosts");
                 this.processPosts();
             }
-            if (runProperty.isProcessDeleteMyReplies()) {
+            if (runConfig.isProcessMyReplies()) {
                 log.info("process MyReplies");
                 this.processReplies();
             }
-            if (runProperty.isProcessDeleteSearchResults()) {
+            if (runConfig.isProcessSearchResults()) {
                 log.info("process SearchResults");
                 this.processSearchResults(username);
             }
@@ -191,7 +190,7 @@ public class Cleaner {
     }
 
     private boolean isValidPage() {
-        return !runProperty.getInvalidContentPageTitlePattern()
+        return !runConfig.getInvalidContentPageTitlePattern()
                 .matcher(driver.getTitle())
                 .find();
     }
@@ -207,12 +206,12 @@ public class Cleaner {
         try {
             switchToNextTab(driver);
             if (isValidPage()) {
-                if (tryDelete()) {
-                    return;
+                while (tryDelete()) {
+                    continue;
                 }
-                if (tryDelete()) {
-                    return;
-                }
+                //if (tryDelete()) {
+                //    return;
+                //}
                 WebElement moreLink = waitForElement(selectors.getMoreLink());
                 new Actions(driver).moveToElement(moreLink).perform();
                 this.scrollIntoView(moreLink);
@@ -253,6 +252,23 @@ public class Cleaner {
         //driver.executeScript("arguments[0].scrollIntoView(true);", element);
     }
 
+    //private boolean execDelete(WebElement webElement) {
+    //    wait.until(refreshed(elementToBeClickable(webElement)));
+    //    this.scrollIntoView(webElement);
+    //    webElement.click();
+    //    waitForElement(selectors.getDialogConfirmBtn()).click();
+    //    Thread.sleep(500);
+    //    try {
+    //        String message = driver.findElement(By.cssSelector(".d_messager_txt")).getText();
+    //        log.warn("message: {}", message);
+    //        waitForElement(selectors.getDialogErrorConfirm()).click();
+    //        return false;
+    //    } catch (NoSuchElementException e) {
+    //        log.info("success");
+    //    }
+    //    return true;
+    //}
+
     private boolean tryDelete() throws InterruptedException {
         try {
             List<WebElement> webElements = null;
@@ -269,21 +285,19 @@ public class Cleaner {
             if (webElements.isEmpty()) {
                 return false;
             }
-            for (WebElement webElement : webElements) {
-                this.scrollIntoView(webElement);
-                wait.until(refreshed(elementToBeClickable(webElement)));
-                webElement.click();
-                waitForElement(selectors.getDialogConfirmBtn()).click();
-                Thread.sleep(500);
-                try {
-                    String message = driver.findElement(By.cssSelector(".dialogJbody > .d_messager_txt")).getText();
-                    log.warn("message: {}", message);
-                    waitForElement(selectors.getDialogErrorConfirm()).click();
-                } catch (NoSuchElementException e) {
-                    log.info("success");
-                    continue;
-                }
-
+            WebElement webElement = webElements.get(0);
+            wait.until(refreshed(elementToBeClickable(webElement)));
+            this.scrollIntoView(webElement);
+            webElement.click();
+            waitForElement(selectors.getDialogConfirmBtn()).click();
+            Thread.sleep(500);
+            try {
+                String message = driver.findElement(By.cssSelector(".d_messager_txt")).getText();
+                log.warn("message: {}", message);
+                waitForElement(selectors.getDialogErrorConfirm()).click();
+                return false;
+            } catch (NoSuchElementException e) {
+                log.info("success");
             }
             return true;
         } catch (TimeoutException ignore) {
